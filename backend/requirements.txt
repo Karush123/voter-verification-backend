@@ -1,7 +1,0 @@
-flask
-flask-cors
-opencv-python-headless
-numpy
-keras-facenet
-tensorflow-cpu
-requests
