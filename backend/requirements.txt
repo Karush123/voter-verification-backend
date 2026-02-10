@@ -1,6 +1,7 @@
 flask
-opencv-python
+flask-cors
+opencv-python-headless
 numpy
 keras-facenet
-tensorflow
-sqlite3
+tensorflow-cpu
+requests
