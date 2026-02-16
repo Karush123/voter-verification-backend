@@ -5,3 +5,4 @@ opencv-python-headless
 keras-facenet
 tensorflow-cpu
 requests
+psycopg2-binary
