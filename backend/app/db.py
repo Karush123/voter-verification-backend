@@ -1,4 +1,5 @@
-import sqlite3
+import psycopg2
+import os
 
 def get_connection():
-    return sqlite3.connect("database/voters.db")
+    return psycopg2.connect(os.environ["DATABASE_URL"])
