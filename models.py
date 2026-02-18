@@ -8,7 +8,7 @@ def create_tables():
         CREATE TABLE IF NOT EXISTS voters (
             voter_id VARCHAR(50) PRIMARY KEY,
             name TEXT,
-            face_embedding FLOAT[],
+            face_embedding TEXT,
             fingerprint_template TEXT,
             has_voted BOOLEAN DEFAULT FALSE
         );
