@@ -107,6 +107,18 @@ def cast_vote():
     conn.close()
 
     return jsonify({"message": "Vote Cast Successfully"})
+@app.route("/check-db")
+def check_db():
+    try:
+        conn = get_connection()
+        cur = conn.cursor()
+        cur.execute("SELECT * FROM voters;")
+        rows = cur.fetchall()
+        cur.close()
+        conn.close()
+        return {"rows": rows}
+    except Exception as e:
+        return {"error": str(e)}
 
 
 if __name__ == "__main__":
