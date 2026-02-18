@@ -12,7 +12,7 @@ with app.app_context():
 
 @app.route("/admin/register", methods=["POST"])
 def register_voter():
-    data = request.json
+    data = request.get_json()
 
     voter_id = data["voter_id"]
     name = data["name"]
@@ -37,7 +37,7 @@ def register_voter():
 
 @app.route("/verify", methods=["POST"])
 def verify_voter():
-    data = request.json
+   data = request.get_json()
     voter_id = data["voter_id"]
     live_face_embedding = data["face_embedding"]
 
@@ -69,7 +69,7 @@ def verify_voter():
 
 @app.route("/store-fingerprint", methods=["POST"])
 def store_fingerprint():
-    data = request.json
+    data = request.get_json()
     voter_id = data["voter_id"]
     fingerprint_xml = data["fingerprint_xml"]
 
