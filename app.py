@@ -37,7 +37,7 @@ def register_voter():
 
 @app.route("/verify", methods=["POST"])
 def verify_voter():
-   data = request.get_json()
+    data = request.get_json()
     voter_id = data["voter_id"]
     live_face_embedding = data["face_embedding"]
 
