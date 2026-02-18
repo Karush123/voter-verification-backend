@@ -5,9 +5,9 @@ from face_utils import compare_faces
 
 app = Flask(__name__)
 
-@app.before_first_request
-def initialize():
+with app.app_context():
     create_tables()
+    
 # ---------------- ADMIN MODE ----------------
 
 @app.route("/admin/register", methods=["POST"])
