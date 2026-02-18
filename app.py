@@ -2,6 +2,10 @@ from flask import Flask, request, jsonify
 from models import create_tables
 from db import get_connection
 from face_utils import get_face_embedding, compare_faces
+import requests
+from flask import Flask, jsonify
+
+
 
 app = Flask(__name__)
 
@@ -60,6 +64,33 @@ def verify_voter():
         return jsonify({"status": "FACE_MISMATCH"})
 
     return jsonify({"status": "VERIFIED"})
+
+@app.route("/capture-fingerprint", methods=["POST"])
+def capture_fingerprint():
+    try:
+        rd_url = "http://localhost:11100/rd/capture"
+
+        xml_request = '''<PidOptions ver="1.0">
+                            <Opts fCount="1" fType="0" format="0" timeout="20000"/>
+                         </PidOptions>'''
+
+        response = requests.post(
+            rd_url,
+            data=xml_request,
+            headers={"Content-Type": "text/xml"},
+            timeout=30
+        )
+
+        return jsonify({
+            "status": "success",
+            "data": response.text
+        })
+
+    except Exception as e:
+        return jsonify({
+            "status": "error",
+            "message": str(e)
+        })
 
 # ---------------- CAST VOTE ----------------
 
