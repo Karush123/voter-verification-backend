@@ -1,11 +1,7 @@
 from flask import Flask, request, jsonify
 from models import create_tables
 from db import get_connection
-from face_utils import get_face_embedding, compare_faces
-import requests
-from flask import Flask, jsonify
-
-
+from face_utils import compare_faces
 
 app = Flask(__name__)
 
@@ -36,7 +32,7 @@ def register_voter():
 
     return jsonify({"message": "Voter Registered Successfully"})
 
-# ---------------- VOTING MODE ----------------
+# ---------------- VERIFY FACE ----------------
 
 @app.route("/verify", methods=["POST"])
 def verify_voter():
@@ -63,34 +59,33 @@ def verify_voter():
     if not match:
         return jsonify({"status": "FACE_MISMATCH"})
 
-    return jsonify({"status": "VERIFIED"})
+    cur.close()
+    conn.close()
 
-@app.route("/capture-fingerprint", methods=["POST"])
-def capture_fingerprint():
-    try:
-        rd_url = "http://localhost:11100/rd/capture"
+    return jsonify({"status": "FACE_VERIFIED"})
 
-        xml_request = '''<PidOptions ver="1.0">
-                            <Opts fCount="1" fType="0" format="0" timeout="20000"/>
-                         </PidOptions>'''
+# ---------------- STORE FINGERPRINT ----------------
 
-        response = requests.post(
-            rd_url,
-            data=xml_request,
-            headers={"Content-Type": "text/xml"},
-            timeout=30
-        )
+@app.route("/store-fingerprint", methods=["POST"])
+def store_fingerprint():
+    data = request.json
+    voter_id = data["voter_id"]
+    fingerprint_xml = data["fingerprint_xml"]
 
-        return jsonify({
-            "status": "success",
-            "data": response.text
-        })
+    conn = get_connection()
+    cur = conn.cursor()
 
-    except Exception as e:
-        return jsonify({
-            "status": "error",
-            "message": str(e)
-        })
+    cur.execute("""
+        UPDATE voters
+        SET fingerprint_template=%s
+        WHERE voter_id=%s
+    """, (fingerprint_xml, voter_id))
+
+    conn.commit()
+    cur.close()
+    conn.close()
+
+    return jsonify({"status": "FINGERPRINT_STORED"})
 
 # ---------------- CAST VOTE ----------------
 
@@ -101,13 +96,18 @@ def cast_vote():
     conn = get_connection()
     cur = conn.cursor()
 
-    cur.execute("UPDATE voters SET has_voted=TRUE WHERE voter_id=%s", (voter_id,))
-    conn.commit()
+    cur.execute("""
+        UPDATE voters
+        SET has_voted=TRUE
+        WHERE voter_id=%s
+    """, (voter_id,))
 
+    conn.commit()
     cur.close()
     conn.close()
 
     return jsonify({"message": "Vote Cast Successfully"})
 
+
 if __name__ == "__main__":
-    app.run()
+    app.run(debug=True)
