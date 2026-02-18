@@ -1,8 +1,6 @@
-flask
+Flask
+gunicorn
 psycopg2-binary
-numpy
 opencv-python-headless
 keras-facenet
-tensorflow
-Pillow
-scipy
+numpy
