@@ -4,3 +4,4 @@ psycopg2-binary
 opencv-python-headless
 keras-facenet
 numpy
+scipy
