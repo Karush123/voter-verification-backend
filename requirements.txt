@@ -6,3 +6,4 @@ keras-facenet
 numpy
 scipy
 tensorflow
+requests
