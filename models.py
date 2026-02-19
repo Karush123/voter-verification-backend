@@ -4,7 +4,6 @@ def create_tables():
     conn = get_connection()
     cur = conn.cursor()
 
-    cur.execute("DROP TABLE IF EXISTS voters;")
     cur.execute("""
         CREATE TABLE IF NOT EXISTS voters (
             voter_id VARCHAR(50) PRIMARY KEY,
