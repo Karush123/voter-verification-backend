@@ -6,121 +6,126 @@ import json
 
 app = Flask(__name__)
 
+# Create tables on startup
 with app.app_context():
     create_tables()
-    
-# ---------------- ADMIN MODE ----------------
+
+# ---------------- ADMIN REGISTER ----------------
 
 @app.route("/admin/register", methods=["POST"])
 def register_voter():
-    data = request.get_json()
+    try:
+        data = request.get_json()
 
-    voter_id = data["voter_id"]
-    name = data["name"]
-    face_embedding = json.dumps(data["face_embedding"])
-    fingerprint_template = data["fingerprint"]
+        voter_id = data["voter_id"]
+        name = data["name"]
+        face_embedding = json.dumps(data["face_embedding"])  # store as JSON string
+        fingerprint_template = data["fingerprint_template"]
 
-    conn = get_connection()
-    cur = conn.cursor()
+        conn = get_connection()
+        cur = conn.cursor()
 
-    cur.execute("""
-        INSERT INTO voters (voter_id, name, face_embedding, fingerprint_template)
-        VALUES (%s, %s, %s, %s)
-    """, (voter_id, name, face_embedding, fingerprint_template))
+        # Check duplicate voter
+        cur.execute("SELECT voter_id FROM voters WHERE voter_id=%s", (voter_id,))
+        if cur.fetchone():
+            cur.close()
+            conn.close()
+            return jsonify({"error": "VOTER_ALREADY_EXISTS"}), 400
 
-    conn.commit()
-    cur.close()
-    conn.close()
+        cur.execute("""
+            INSERT INTO voters (voter_id, name, face_embedding, fingerprint_template)
+            VALUES (%s, %s, %s, %s)
+        """, (voter_id, name, face_embedding, fingerprint_template))
 
-    return jsonify({"message": "Voter Registered Successfully"})
+        conn.commit()
+        cur.close()
+        conn.close()
 
-# ---------------- VERIFY FACE ----------------
+        return jsonify({"message": "Voter Registered Successfully"})
 
-@app.route("/verify", methods=["POST"])
-def verify_voter():
-    data = request.get_json()
-    voter_id = data["voter_id"]
-    live_face_embedding = data["face_embedding"]
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
-    conn = get_connection()
-    cur = conn.cursor()
 
-    cur.execute("SELECT face_embedding, has_voted FROM voters WHERE voter_id=%s", (voter_id,))
-    record = cur.fetchone()
+# ---------------- FINAL VERIFY + VOTE ----------------
 
-    if not record:
-        return jsonify({"status": "VOTER_NOT_FOUND"})
+@app.route("/verify-and-vote", methods=["POST"])
+def verify_and_vote():
+    try:
+        data = request.get_json()
+        voter_id = data["voter_id"]
+        live_face_embedding = data["face_embedding"]
+        live_fingerprint = data["fingerprint_template"]
 
-    stored_embedding, has_voted = record
+        conn = get_connection()
+        cur = conn.cursor()
 
-    if has_voted:
-        return jsonify({"status": "ALREADY_VOTED"})
+        cur.execute("""
+            SELECT face_embedding, fingerprint_template, has_voted
+            FROM voters
+            WHERE voter_id=%s
+        """, (voter_id,))
 
-    match = compare_faces(stored_embedding, live_face_embedding)
+        record = cur.fetchone()
 
-    if not match:
-        return jsonify({"status": "FACE_MISMATCH"})
+        if not record:
+            cur.close()
+            conn.close()
+            return jsonify({"status": "VOTER_NOT_FOUND"})
 
-    cur.close()
-    conn.close()
+        stored_face, stored_fingerprint, has_voted = record
 
-    return jsonify({"status": "FACE_VERIFIED"})
+        if has_voted:
+            cur.close()
+            conn.close()
+            return jsonify({"status": "ALREADY_VOTED"})
 
-# ---------------- STORE FINGERPRINT ----------------
+        # Face comparison
+        face_match = compare_faces(stored_face, live_face_embedding)
 
-@app.route("/store-fingerprint", methods=["POST"])
-def store_fingerprint():
-    data = request.get_json()
-    voter_id = data["voter_id"]
-    fingerprint_xml = data["fingerprint_xml"]
+        if not face_match:
+            cur.close()
+            conn.close()
+            return jsonify({"status": "FACE_MISMATCH"})
 
-    conn = get_connection()
-    cur = conn.cursor()
+        # Fingerprint comparison (simple equality check)
+        # Real systems use SDK-based matching
+        if stored_fingerprint != live_fingerprint:
+            cur.close()
+            conn.close()
+            return jsonify({"status": "FINGERPRINT_MISMATCH"})
 
-    cur.execute("""
-        UPDATE voters
-        SET fingerprint_template=%s
-        WHERE voter_id=%s
-    """, (fingerprint_xml, voter_id))
+        # If everything passes → mark voted
+        cur.execute("""
+            UPDATE voters
+            SET has_voted=TRUE
+            WHERE voter_id=%s
+        """, (voter_id,))
 
-    conn.commit()
-    cur.close()
-    conn.close()
+        conn.commit()
+        cur.close()
+        conn.close()
 
-    return jsonify({"status": "FINGERPRINT_STORED"})
+        return jsonify({"status": "VOTE_SUCCESS"})
 
-# ---------------- CAST VOTE ----------------
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
-@app.route("/vote", methods=["POST"])
-def cast_vote():
-    voter_id = request.json["voter_id"]
 
-    conn = get_connection()
-    cur = conn.cursor()
+# ---------------- DEBUG ROUTE ----------------
 
-    cur.execute("""
-        UPDATE voters
-        SET has_voted=TRUE
-        WHERE voter_id=%s
-    """, (voter_id,))
-
-    conn.commit()
-    cur.close()
-    conn.close()
-
-    return jsonify({"message": "Vote Cast Successfully"})
 @app.route("/check-db")
 def check_db():
     try:
         conn = get_connection()
         cur = conn.cursor()
-        cur.execute("SELECT * FROM voters;")
+        cur.execute("SELECT voter_id, name, has_voted FROM voters;")
         rows = cur.fetchall()
         cur.close()
         conn.close()
-        return {"rows": rows}
+        return jsonify({"rows": rows})
     except Exception as e:
-        return {"error": str(e)}
+        return jsonify({"error": str(e)}), 500
 
 
 if __name__ == "__main__":
