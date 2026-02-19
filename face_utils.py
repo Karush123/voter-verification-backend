@@ -1,6 +1,6 @@
 import numpy as np
-from keras_facenet import FaceNet
 import json
+from keras_facenet import FaceNet
 
 embedder = FaceNet()
 
@@ -8,14 +8,17 @@ def get_face_embedding(image_array):
     embedding = embedder.embeddings([image_array])[0]
     return embedding.tolist()
 
-def compare_faces(embedding1, embedding2, threshold=0.7):
-    if isinstance(embedding1, str):
-        embedding1 = json.loads(embedding1)
+def compare_faces(stored_embedding, live_embedding, threshold=0.7):
 
-    if isinstance(embedding2, str):
-        embedding2 = json.loads(embedding2)
+    # Convert JSON string back to list if needed
+    if isinstance(stored_embedding, str):
+        stored_embedding = json.loads(stored_embedding)
+
+    if isinstance(live_embedding, str):
+        live_embedding = json.loads(live_embedding)
 
     distance = np.linalg.norm(
-        np.array(embedding1) - np.array(embedding2)
+        np.array(stored_embedding) - np.array(live_embedding)
     )
+
     return distance < threshold
