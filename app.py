@@ -1,7 +1,7 @@
 from flask import Flask, request, jsonify
 from models import create_tables
 from db import get_connection
-from face_utils import compare_faces
+from face_utils import generate_embedding_from_base64, compare_faces
 import json
 
 app = Flask(__name__)
@@ -19,13 +19,17 @@ def register_voter():
 
         voter_id = data["voter_id"]
         name = data["name"]
-        face_embedding = json.dumps(data["face_embedding"])  # store as JSON string
+        image_base64 = data["image"]  # <-- frontend sends image
+
+        # Generate embedding from image
+        face_embedding = generate_embedding_from_base64(image_base64)
+        face_embedding = json.dumps(face_embedding)
+
         fingerprint_template = data["fingerprint_template"]
 
         conn = get_connection()
         cur = conn.cursor()
 
-        # Check duplicate voter
         cur.execute("SELECT voter_id FROM voters WHERE voter_id=%s", (voter_id,))
         if cur.fetchone():
             cur.close()
@@ -54,7 +58,8 @@ def verify_and_vote():
     try:
         data = request.get_json()
         voter_id = data["voter_id"]
-        live_face_embedding = data["face_embedding"]
+        image_base64 = data["image"]
+        live_face_embedding = generate_embedding_from_base64(image_base64)
         live_fingerprint = data["fingerprint_template"]
 
         conn = get_connection()
@@ -80,7 +85,6 @@ def verify_and_vote():
             conn.close()
             return jsonify({"status": "ALREADY_VOTED"})
 
-        # Face comparison
         face_match = compare_faces(stored_face, live_face_embedding)
 
         if not face_match:
@@ -88,14 +92,11 @@ def verify_and_vote():
             conn.close()
             return jsonify({"status": "FACE_MISMATCH"})
 
-        # Fingerprint comparison (simple equality check)
-        # Real systems use SDK-based matching
         if stored_fingerprint != live_fingerprint:
             cur.close()
             conn.close()
             return jsonify({"status": "FINGERPRINT_MISMATCH"})
 
-        # If everything passes → mark voted
         cur.execute("""
             UPDATE voters
             SET has_voted=TRUE
@@ -110,7 +111,6 @@ def verify_and_vote():
 
     except Exception as e:
         return jsonify({"error": str(e)}), 500
-
 
 # ---------------- DEBUG ROUTE ----------------
 
