@@ -2,6 +2,7 @@ from flask import Flask, request, jsonify
 from models import create_tables
 from db import get_connection
 from face_utils import compare_faces
+import json
 
 app = Flask(__name__)
 
@@ -16,7 +17,7 @@ def register_voter():
 
     voter_id = data["voter_id"]
     name = data["name"]
-    face_embedding = data["face_embedding"]
+    face_embedding = json.dumps(data["face_embedding"])
     fingerprint_template = data["fingerprint"]
 
     conn = get_connection()
